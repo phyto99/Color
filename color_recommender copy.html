@@ -1,0 +1,1451 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Color Accessibility Analysis</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 11px;
+            background: #0a0a0a;
+            color: #fff;
+            padding: 10px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 8px;
+            background: #111;
+            border: 1px solid #333;
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+            font-size: 10px;
+        }
+
+        .stat {
+            color: #888;
+        }
+
+        .stat span {
+            color: #0ff;
+            font-weight: bold;
+        }
+
+        .toggles {
+            display: flex;
+            gap: 5px;
+        }
+
+        .toggle {
+            padding: 4px 10px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: #888;
+            cursor: pointer;
+            font-size: 10px;
+        }
+
+        .toggle.active {
+            background: #0ff;
+            color: #000;
+            border-color: #0ff;
+        }
+
+        .section-title {
+            color: #0ff;
+            font-size: 12px;
+            margin: 15px 0 8px 0;
+            padding: 4px 8px;
+            background: #111;
+            border-left: 3px solid #0ff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .section-help {
+            font-size: 9px;
+            color: #888;
+            font-weight: normal;
+        }
+
+        /* Heatmap Grid */
+        .heatmap-container {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .heatmap-panel {
+            flex: 1;
+            background: #111;
+            border: 1px solid #333;
+            padding: 10px;
+        }
+
+        .heatmap-grid {
+            display: grid;
+            gap: 1px;
+            background: #222;
+            border: 1px solid #333;
+        }
+
+        .heatmap-cell {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            font-weight: bold;
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .heatmap-cell:hover {
+            transform: scale(1.1);
+            z-index: 10;
+            border: 2px solid #0ff;
+        }
+
+        .heatmap-cell.highlighted {
+            border: 2px solid #fff;
+            z-index: 5;
+        }
+
+        .heatmap-label {
+            background: #111;
+            padding: 2px 4px;
+            font-size: 8px;
+            text-align: center;
+        }
+
+        /* Color Recommender */
+        .recommender-panel {
+            background: #111;
+            border: 1px solid #333;
+            padding: 10px;
+            margin-bottom: 20px;
+        }
+
+        .recommender-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+
+        .control-group label {
+            font-size: 9px;
+            color: #888;
+        }
+
+        .control-group input {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: #0ff;
+            padding: 4px 8px;
+            font-size: 10px;
+            font-family: inherit;
+            width: 60px;
+        }
+
+        .btn {
+            padding: 4px 12px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: #0ff;
+            cursor: pointer;
+            font-size: 10px;
+            font-family: inherit;
+        }
+
+        .btn:hover {
+            background: #0ff;
+            color: #000;
+        }
+
+        .btn.primary {
+            background: #0ff;
+            color: #000;
+        }
+
+        .recommendations-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .recommendation-card {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            padding: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .recommendation-card:hover {
+            border-color: #0ff;
+            transform: translateY(-2px);
+        }
+
+        .recommendation-card.selected {
+            border: 2px solid #0ff;
+            background: #1a3a3a;
+        }
+
+        .rec-color-preview {
+            width: 100%;
+            height: 40px;
+            margin-bottom: 5px;
+            border: 1px solid #333;
+            position: relative;
+        }
+
+        .rec-score {
+            font-size: 9px;
+            color: #888;
+            display: flex;
+            justify-content: space-between;
+            margin-top: 3px;
+        }
+
+        .rec-score-value {
+            color: #0ff;
+            font-weight: bold;
+        }
+
+        .preview-dots {
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            display: flex;
+            gap: 2px;
+        }
+
+        .preview-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            border: 1px solid #000;
+        }
+
+        /* Color Spectrum */
+        .spectrum-container {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .spectrum-panel {
+            background: #111;
+            border: 1px solid #333;
+            padding: 10px;
+        }
+
+        .panel-title {
+            font-size: 10px;
+            color: #888;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+
+        .spectrum-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 2px;
+        }
+
+        .spectrum-cell {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+            font-weight: bold;
+            border: 1px solid #000;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .spectrum-cell:hover {
+            z-index: 10;
+            transform: scale(1.2);
+            border: 2px solid #0ff;
+        }
+
+        /* Color Space Map */
+        .colorspace-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .colorspace-panel {
+            background: #111;
+            border: 1px solid #333;
+            padding: 10px;
+        }
+
+        .colorspace-canvas {
+            width: 100%;
+            height: auto;
+            aspect-ratio: 3/2;
+            background: #000;
+            border: 1px solid #333;
+            cursor: crosshair;
+        }
+
+        .info-text {
+            font-size: 9px;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <div class="stats">
+            <div class="stat">Deuteranopia: <span>5.0%</span></div>
+            <div class="stat">Protanopia: <span>1.0%</span></div>
+            <div class="stat">Tritanopia: <span>0.01%</span></div>
+            <div class="stat">Total: <span>~8%</span> (~300M people)</div>
+        </div>
+        <div class="toggles">
+            <button class="toggle active" data-mode="normal">Normal</button>
+            <button class="toggle" data-mode="deuteranopia">Deuteranopia</button>
+            <button class="toggle" data-mode="protanopia">Protanopia</button>
+            <button class="toggle" data-mode="tritanopia">Tritanopia</button>
+        </div>
+    </div>
+
+    <div class="section-title">■ Color Spectrum Views - Original vs Colorblind Simulation</div>
+    <div class="spectrum-container" id="spectrumContainer"></div>
+
+    <div class="section-title">
+        <span>■ Color Difference Heatmap (ΔE) - Perceptual Distance Matrix</span>
+        <span class="section-help">Hover to link halves | Top Right: Visual | Bottom Left: Numeric</span>
+    </div>
+    <div class="heatmap-container" id="heatmapContainer"></div>
+
+    <div class="section-title">
+        <span>⚡ Intelligent Color Recommender - Deterministic Greedy Algorithm</span>
+        <span class="section-help">Picks the mathematically optimal next color | Non-randomized</span>
+    </div>
+
+    <div class="recommender-panel">
+        <!-- Algorithm Explanation -->
+        <div style="background: #0a0a0a; border: 1px solid #0ff; padding: 10px; margin-bottom: 10px; font-size: 10px;">
+            <div style="color: #0ff; font-weight: bold; margin-bottom: 6px;">🧮 How the Algorithm Works:</div>
+            <div style="color: #aaa; line-height: 1.5;">
+                <strong style="color:#fff">1. Generate Candidates:</strong> Creates ~4000 colors (step=32 in RGB cube)<br>
+                <strong style="color:#fff">2. Score Each Color:</strong> For each candidate, calculate:<br>
+                <span style="margin-left: 20px; font-family: monospace; color:#0f0;">
+                    Score = Σ(weight<sub>mode</sub> × min_distance<sub>mode</sub>) - penalties
+                </span><br>
+                <span style="margin-left: 20px;">• Simulates color in each colorblind mode</span><br>
+                <span style="margin-left: 20px;">• Finds minimum ΔE distance to existing colors</span><br>
+                <span style="margin-left: 20px;">• Weights by population prevalence (92% normal, 5% deut, 1% prot, 0.01% trit)</span><br>
+                <span style="margin-left: 20px;">• Applies penalties if too close to UI colors or below Min ΔE</span><br>
+                <strong style="color:#fff">3. Rank & Filter:</strong> Sort by score, remove duplicates (ΔE < 25)<br>
+                <strong style="color:#fff">4. Show Top 20:</strong> Display best options with future projections<br>
+                <span style="color:#0ff;">✓ Deterministic: Same inputs = same results (no randomness!)</span>
+            </div>
+        </div>
+
+        <!-- Calculation Breakdown Tooltip -->
+        <div id="calculationBreakdown" style="
+            position: fixed;
+            background: #0a0a0a;
+            border: 1px solid #f80;
+            padding: 10px;
+            display: none;
+            z-index: 1000;
+            max-width: 500px;
+            max-height: 400px;
+            overflow-y: auto;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.8);
+            pointer-events: none;
+            font-size: 9px;
+        ">
+            <div style="font-size: 10px; color: #f80; font-weight: bold; margin-bottom: 6px;">
+                🔬 Score Breakdown
+            </div>
+            <div id="breakdownContent" style="font-family: monospace; line-height: 1.5;"></div>
+        </div>
+        <div class="recommender-controls">
+            <div class="control-group">
+                <label>Target Size:</label>
+                <input type="range" id="teamSize" value="8" min="3" max="16" style="width: 80px">
+                <span id="teamSizeVal" style="font-size:10px; color:#0ff; font-weight:bold">8</span>
+            </div>
+            <div class="control-group">
+                <input type="checkbox" id="lockExisting" checked>
+                <label for="lockExisting" title="Keep current colors and add new ones">Lock Current</label>
+            </div>
+            <div class="control-group">
+                <input type="checkbox" id="showGamut" checked>
+                <label for="showGamut">Show Gradient</label>
+            </div>
+            <div class="control-group">
+                <label>Min ΔE:</label>
+                <input type="number" id="minDelta" value="20" min="10" max="100" style="width: 50px">
+            </div>
+        </div>
+
+        <div class="recommender-controls" style="border-top: 1px solid #333; padding-top: 8px; margin-top: 8px;">
+            <div class="control-group">
+                <label style="color:#fff">Colorblind Weights (%):</label>
+            </div>
+            <div class="control-group">
+                <label>Normal:</label>
+                <input type="number" id="wNormal" value="92" step="1" style="width: 50px" min="0" max="100">
+            </div>
+            <div class="control-group">
+                <label>Deut:</label>
+                <input type="number" id="wDeut" value="5" step="1" style="width: 50px" min="0" max="100">
+            </div>
+            <div class="control-group">
+                <label>Prot:</label>
+                <input type="number" id="wProt" value="1" step="1" style="width: 50px" min="0" max="100">
+            </div>
+            <div class="control-group">
+                <label>Trit:</label>
+                <input type="number" id="wTrit" value="0.01" step="0.01" style="width: 50px" min="0" max="100">
+            </div>
+        </div>
+
+        <div class="recommender-controls" style="border-top: 1px solid #333; padding-top: 8px; margin-top: 8px;">
+            <div class="control-group">
+                <label style="color:#fff">Avoid UI Colors:</label>
+            </div>
+            <div class="control-group">
+                <input type="checkbox" id="avoidBlack" checked> <label>Black</label>
+            </div>
+            <div class="control-group">
+                <input type="checkbox" id="avoidWhite" checked> <label>White</label>
+            </div>
+            <div class="control-group">
+                <input type="checkbox" id="avoidGrey"> <label>Grey</label>
+            </div>
+            <div class="control-group">
+                <label>Min Dist:</label>
+                <input type="number" id="uiMinDist" value="40" min="10" max="100" style="width: 50px">
+            </div>
+            <button class="btn primary" id="generateBtn" style="margin-left: auto;">↻ Recalculate</button>
+        </div>
+
+        <div class="recommendations-grid" id="recommendationsGrid"></div>
+    </div>
+
+    <div class="section-title">◆ Color Space Mapping - a* vs b* (CIELAB)</div>
+    <div class="colorspace-container" id="colorspaceContainer"></div>
+
+    <script>
+        // TNIL Color Naming System (must be defined first)
+        const colorRoots = ["gy", "ňr", "ml", "čw", "ḑr", "lw", "žl", "vm"];
+        const stems = ["a", "e", "u"];
+        const grayscale = ["axm-", "ucv-", "acv-", "ecv-", "abv-"];
+
+        const colorStems = colorRoots.map(
+            (root) => stems.map(
+                (stem) => stem + root + "-"
+            )).reduce((curr, acc) => [...curr, ...acc], []);
+
+        function rgbToHSL(rgb) {
+            const [r, g, b] = rgb.map(v => v / 255);
+            const min = Math.min(r, g, b);
+            const max = Math.max(r, g, b);
+            let l = (min + max) / 2;
+            let s, h;
+
+            if (max - min < 0.05) {
+                s = 0;
+                h = 0;
+            } else {
+                s = l < 0.5 ? (max - min) / (max + min)
+                    : (max - min) / (2.0 - max - min);
+                if (r === max) {
+                    h = 0.0 + (g - b) / (max - min);
+                } else if (g === max) {
+                    h = 2.0 + (b - r) / (max - min);
+                } else {
+                    h = 4.0 + (r - g) / (max - min);
+                }
+            }
+            return {
+                h: (h <= 0) * 360 + 60 * h,
+                s: s,
+                l: l
+            };
+        }
+
+        function hueToRoot(num) {
+            return colorStems[(Math.ceil(num / 15) + 1) % 24];
+        }
+
+        function rgbToTNIL(rgb) {
+            const hsl = rgbToHSL(rgb);
+            if (hsl.s < 0.2) {
+                return grayscale[Math.floor(4.999 * hsl.l)];
+            } else {
+                return hueToRoot(hsl.h);
+            }
+        }
+
+        // Initial Palette - first 6 colors keep their original names
+        let colors = [
+            { name: 'Cyan', hex: '#00FFFF', rgb: [0, 255, 255] },
+            { name: 'Magenta', hex: '#FF00FF', rgb: [255, 0, 255] },
+            { name: 'Lime', hex: '#00FF00', rgb: [0, 255, 0] },
+            { name: 'Gold', hex: '#FFD700', rgb: [255, 215, 0] },
+            { name: 'Blue', hex: '#0000FF', rgb: [0, 0, 255] },
+            { name: 'Red', hex: '#FF0000', rgb: [255, 0, 0] }
+        ];
+
+        // State
+        let defaultPlan = [];
+        let hoveredCandidate = null;
+
+        let currentMode = 'normal';
+
+        const CB_MATRICES = {
+            deuteranopia: [[0.625, 0.375, 0], [0.7, 0.3, 0], [0, 0.3, 0.7]],
+            protanopia: [[0.567, 0.433, 0], [0.558, 0.442, 0], [0, 0.242, 0.758]],
+            tritanopia: [[0.95, 0.05, 0], [0, 0.433, 0.567], [0, 0.475, 0.525]]
+        };
+
+        function simulateColorBlindness(rgb, type) {
+            if (type === 'normal') return rgb;
+            const matrix = CB_MATRICES[type];
+            return [
+                Math.round(matrix[0][0] * rgb[0] + matrix[0][1] * rgb[1] + matrix[0][2] * rgb[2]),
+                Math.round(matrix[1][0] * rgb[0] + matrix[1][1] * rgb[1] + matrix[1][2] * rgb[2]),
+                Math.round(matrix[2][0] * rgb[0] + matrix[2][1] * rgb[1] + matrix[2][2] * rgb[2])
+            ];
+        }
+
+        function rgbToLab(rgb) {
+            let [r, g, b] = rgb.map(v => {
+                v /= 255;
+                return v > 0.04045 ? Math.pow((v + 0.055) / 1.055, 2.4) : v / 12.92;
+            });
+            let x = (r * 0.4124 + g * 0.3576 + b * 0.1805) / 0.95047;
+            let y = (r * 0.2126 + g * 0.7152 + b * 0.0722);
+            let z = (r * 0.0193 + g * 0.1192 + b * 0.9505) / 1.08883;
+            const f = t => t > 0.008856 ? Math.pow(t, 1 / 3) : (7.787 * t) + 16 / 116;
+            [x, y, z] = [f(x), f(y), f(z)];
+            return [(116 * y) - 16, 500 * (x - y), 200 * (y - z)];
+        }
+
+        function labToRgb(lab) {
+            let y = (lab[0] + 16) / 116;
+            let x = lab[1] / 500 + y;
+            let z = y - lab[2] / 200;
+            const fInv = (t) => t > 0.206893034 ? t * t * t : (t - 16 / 116) / 7.787;
+            x = 0.95047 * fInv(x);
+            y = 1.00000 * fInv(y);
+            z = 1.08883 * fInv(z);
+            let r = x * 3.2406 + y * -1.5372 + z * -0.4986;
+            let g = x * -0.9689 + y * 1.8758 + z * 0.0415;
+            let b = x * 0.0557 + y * -0.2040 + z * 1.0570;
+            const gamma = (v) => v > 0.0031308 ? 1.055 * Math.pow(v, 1 / 2.4) - 0.055 : 12.92 * v;
+            return [
+                Math.round(gamma(r) * 255),
+                Math.round(gamma(g) * 255),
+                Math.round(gamma(b) * 255)
+            ];
+        }
+
+        function isRgbInGamut(rgb) {
+            return rgb[0] >= 0 && rgb[0] <= 255 &&
+                rgb[1] >= 0 && rgb[1] <= 255 &&
+                rgb[2] >= 0 && rgb[2] <= 255;
+        }
+
+        function deltaE(lab1, lab2) {
+            return Math.sqrt(Math.pow(lab1[0] - lab2[0], 2) + Math.pow(lab1[1] - lab2[1], 2) + Math.pow(lab1[2] - lab2[2], 2));
+        }
+
+        function getTextColor(rgb) {
+            return (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) > 128 ? '#000' : '#fff';
+        }
+
+        function rgbToHex(rgb) {
+            return '#' + rgb.map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+        }
+
+        // --- Core Logic ---
+
+        function getWeights() {
+            return {
+                normal: (parseFloat(document.getElementById('wNormal').value) || 92) / 100,
+                deuteranopia: (parseFloat(document.getElementById('wDeut').value) || 5) / 100,
+                protanopia: (parseFloat(document.getElementById('wProt').value) || 1) / 100,
+                tritanopia: (parseFloat(document.getElementById('wTrit').value) || 0.01) / 100
+            };
+        }
+
+        function getUIConstraints() {
+            const constraints = [];
+            const minDist = parseFloat(document.getElementById('uiMinDist').value) || 40;
+            if (document.getElementById('avoidBlack').checked) constraints.push({ rgb: [0, 0, 0], name: 'Black' });
+            if (document.getElementById('avoidWhite').checked) constraints.push({ rgb: [255, 255, 255], name: 'White' });
+            if (document.getElementById('avoidGrey').checked) constraints.push({ rgb: [128, 128, 128], name: 'Grey' });
+            return { colors: constraints, minDist: minDist };
+        }
+
+        function calculateDetailedScore(rgb, existingColors, returnBreakdown = false) {
+            const weights = getWeights();
+            const uiConstraints = getUIConstraints();
+            const minDelta = parseFloat(document.getElementById('minDelta').value) || 20;
+            
+            let totalScore = 0;
+            const lab = rgbToLab(rgb);
+            const breakdown = {
+                rgb: rgb,
+                hex: rgbToHex(rgb),
+                lab: lab,
+                uiPenalties: [],
+                modeScores: [],
+                total: 0
+            };
+            
+            // Avoid UI colors
+            for (let ui of uiConstraints.colors) {
+                const uiLab = rgbToLab(ui.rgb);
+                const dist = deltaE(lab, uiLab);
+                if (dist < uiConstraints.minDist) {
+                    const penalty = (uiConstraints.minDist - dist) * 100;
+                    totalScore -= penalty;
+                    breakdown.uiPenalties.push({
+                        name: ui.name,
+                        distance: dist,
+                        penalty: penalty
+                    });
+                }
+            }
+
+            // Calculate weighted colorblind distances
+            const modes = ['normal', 'deuteranopia', 'protanopia', 'tritanopia'];
+            modes.forEach(mode => {
+                const w = weights[mode];
+                if (w <= 0) return;
+                
+                const simRgb = simulateColorBlindness(rgb, mode);
+                const simLab = rgbToLab(simRgb);
+                let minDistInMode = Infinity;
+                let closestColor = null;
+                
+                existingColors.forEach(color => {
+                    const existingSimRgb = simulateColorBlindness(color.rgb, mode);
+                    const existingSimLab = rgbToLab(existingSimRgb);
+                    const dist = deltaE(simLab, existingSimLab);
+                    if (dist < minDistInMode) {
+                        minDistInMode = dist;
+                        closestColor = color.name;
+                    }
+                });
+                
+                let modeScore = minDistInMode * w;
+                let penalty = 0;
+                if (minDistInMode < minDelta) {
+                    penalty = (minDelta - minDistInMode) * 2 * w;
+                    modeScore -= penalty;
+                }
+                totalScore += modeScore;
+                
+                breakdown.modeScores.push({
+                    mode: mode,
+                    weight: w,
+                    minDistance: minDistInMode,
+                    closestColor: closestColor,
+                    baseScore: minDistInMode * w,
+                    penalty: penalty,
+                    finalScore: modeScore
+                });
+            });
+            
+            breakdown.total = totalScore;
+            return returnBreakdown ? breakdown : totalScore;
+        }
+
+        function generateColorCandidates() {
+            const candidates = [];
+            const step = 32;
+            for (let r = 0; r <= 255; r += step) {
+                for (let g = 0; g <= 255; g += step) {
+                    for (let b = 0; b <= 255; b += step) {
+                        const rgb = [r, g, b];
+                        candidates.push({ rgb: rgb, lab: rgbToLab(rgb) });
+                    }
+                }
+            }
+            return candidates;
+        }
+
+        // --- Deterministic Greedy Optimization with Colorblind Weighting ---
+
+        function optimizeTeam(basePalette, targetSize, lockExisting) {
+            let fixedColors = [];
+            let needed = 0;
+
+            if (lockExisting) {
+                fixedColors = [...basePalette];
+                needed = targetSize - fixedColors.length;
+            } else {
+                // Re-optimize everything from scratch (no anchors)
+                fixedColors = [];
+                needed = targetSize;
+            }
+
+            if (needed <= 0) return [];
+
+            const candidates = generateColorCandidates();
+            const result = [];
+            const currentPalette = [...fixedColors];
+            const weights = getWeights();
+            const minDelta = parseFloat(document.getElementById('minDelta').value) || 20;
+
+            // Greedy algorithm: pick best color one at a time using colorblind-weighted scoring
+            for (let i = 0; i < needed; i++) {
+                let bestCandidate = null;
+                let bestScore = -Infinity;
+
+                for (let candidate of candidates) {
+                    // Skip if too similar to existing colors
+                    let tooClose = false;
+                    for (let existing of currentPalette) {
+                        if (deltaE(candidate.lab, rgbToLab(existing.rgb)) < 5) {
+                            tooClose = true;
+                            break;
+                        }
+                    }
+                    if (tooClose) continue;
+
+                    // Calculate weighted colorblind score
+                    let totalScore = 0;
+                    const modes = ['normal', 'deuteranopia', 'protanopia', 'tritanopia'];
+                    
+                    modes.forEach(mode => {
+                        const w = weights[mode];
+                        if (w <= 0) return;
+                        
+                        const simRgb = simulateColorBlindness(candidate.rgb, mode);
+                        const simLab = rgbToLab(simRgb);
+                        let minDistInMode = Infinity;
+                        
+                        // Check against current palette
+                        for (let existing of currentPalette) {
+                            const existingSimRgb = simulateColorBlindness(existing.rgb, mode);
+                            const existingSimLab = rgbToLab(existingSimRgb);
+                            const dist = deltaE(simLab, existingSimLab);
+                            minDistInMode = Math.min(minDistInMode, dist);
+                        }
+                        
+                        let modeScore = minDistInMode * w;
+                        if (minDistInMode < minDelta) {
+                            modeScore -= (minDelta - minDistInMode) * 2 * w;
+                        }
+                        totalScore += modeScore;
+                    });
+
+                    if (totalScore > bestScore) {
+                        bestScore = totalScore;
+                        bestCandidate = candidate;
+                    }
+                }
+
+                if (bestCandidate) {
+                    const newColor = {
+                        rgb: bestCandidate.rgb,
+                        name: rgbToTNIL(bestCandidate.rgb),
+                        isNew: true
+                    };
+                    result.push(newColor);
+                    currentPalette.push(newColor);
+                }
+            }
+
+            return result;
+        }
+
+        // --- Visualization ---
+
+        function renderHeatmap() {
+            const container = document.getElementById('heatmapContainer');
+            container.innerHTML = '';
+
+            let activeColors = [...colors];
+            
+            // Add hovered candidate if present
+            if (hoveredCandidate) {
+                const tnilName = rgbToTNIL(hoveredCandidate.rgb);
+                activeColors.push({ 
+                    name: tnilName, 
+                    rgb: hoveredCandidate.rgb, 
+                    hex: rgbToHex(hoveredCandidate.rgb), 
+                    isHovered: true 
+                });
+            }
+
+            const n = activeColors.length;
+            const panel = document.createElement('div');
+            panel.className = 'heatmap-panel';
+            const grid = document.createElement('div');
+            grid.className = 'heatmap-grid';
+            grid.style.gridTemplateColumns = `60px repeat(${n}, 1fr)`;
+
+            grid.appendChild(document.createElement('div'));
+            activeColors.forEach(color => {
+                const label = document.createElement('div');
+                label.className = 'heatmap-label';
+                label.textContent = color.name.substring(0, 3);
+                label.style.color = color.hex;
+                if (color.isHovered) label.style.fontWeight = 'bold';
+                grid.appendChild(label);
+            });
+
+            activeColors.forEach((rowColor, i) => {
+                const rowLabel = document.createElement('div');
+                rowLabel.className = 'heatmap-label';
+                rowLabel.textContent = rowColor.name.substring(0, 3);
+                rowLabel.style.color = rowColor.hex;
+                if (rowColor.isHovered) rowLabel.style.fontWeight = 'bold';
+                grid.appendChild(rowLabel);
+                activeColors.forEach((colColor, j) => {
+                    const cell = document.createElement('div');
+                    cell.className = 'heatmap-cell';
+                    if (i === j) {
+                        cell.style.background = rowColor.hex;
+                        if (rowColor.isHovered) cell.style.border = '2px solid #0ff';
+                    } else {
+                        const rgb1 = simulateColorBlindness(rowColor.rgb, currentMode);
+                        const rgb2 = simulateColorBlindness(colColor.rgb, currentMode);
+                        const lab1 = rgbToLab(rgb1);
+                        const lab2 = rgbToLab(rgb2);
+                        const diff = deltaE(lab1, lab2);
+                        if (j > i) {
+                            cell.style.background = `linear-gradient(135deg, ${rgbToHex(rgb1)} 50%, ${rgbToHex(rgb2)} 50%)`;
+                            cell.style.color = diff < 15 ? '#ff4444' : (diff > 40 ? '#44ff44' : '#ffff44');
+                            cell.style.textShadow = '0 0 2px #000';
+                            cell.textContent = diff.toFixed(0);
+                        } else {
+                            const hue = Math.max(0, Math.min(120, diff * 1.5));
+                            cell.style.background = `hsl(${hue}, 80%, 40%)`;
+                            cell.style.color = '#fff';
+                            cell.textContent = diff.toFixed(0);
+                        }
+                        if (rowColor.isHovered || colColor.isHovered) {
+                            cell.style.border = '2px solid #0ff';
+                        }
+                    }
+                    cell.onmouseover = () => highlightMirror(i, j, true, cell);
+                    cell.onmouseout = () => highlightMirror(i, j, false, cell);
+                    grid.appendChild(cell);
+                });
+            });
+            panel.appendChild(grid);
+            container.appendChild(panel);
+        }
+
+        function highlightMirror(row, col, active, sourceCell) {
+            const cells = document.querySelectorAll('.heatmap-cell');
+            const n = Math.sqrt(cells.length);
+            const mirrorIdx = col * n + row;
+            const currentIdx = row * n + col;
+            if (active) {
+                let ratingColor = row < col ? sourceCell.style.color : cells[mirrorIdx].style.color;
+                cells[currentIdx].style.borderColor = ratingColor;
+                cells[currentIdx].style.borderWidth = '2px';
+                cells[currentIdx].style.borderStyle = 'solid';
+                cells[currentIdx].style.zIndex = '10';
+                cells[mirrorIdx].style.borderColor = ratingColor;
+                cells[mirrorIdx].style.borderWidth = '2px';
+                cells[mirrorIdx].style.borderStyle = 'solid';
+                cells[mirrorIdx].style.zIndex = '10';
+            } else {
+                cells[currentIdx].style.border = 'none';
+                cells[currentIdx].style.zIndex = 'auto';
+                cells[mirrorIdx].style.border = 'none';
+                cells[mirrorIdx].style.zIndex = 'auto';
+            }
+        }
+
+        // --- Calculation Breakdown Display ---
+
+        function showCalculationBreakdown(rgb, event) {
+            const breakdown = calculateDetailedScore(rgb, colors, true);
+            const panel = document.getElementById('calculationBreakdown');
+            const content = document.getElementById('breakdownContent');
+            
+            let html = `<div style="color:#fff; margin-bottom: 6px;">
+                <span style="color:#0ff">Candidate:</span> ${breakdown.hex} 
+                <span style="color:#888">| LAB(${breakdown.lab[0].toFixed(1)}, ${breakdown.lab[1].toFixed(1)}, ${breakdown.lab[2].toFixed(1)})</span>
+            </div>`;
+            
+            // UI Penalties
+            if (breakdown.uiPenalties.length > 0) {
+                html += `<div style="color:#f88; margin-bottom: 4px; font-size: 9px;">⚠ UI Penalties:</div>`;
+                breakdown.uiPenalties.forEach(p => {
+                    html += `<div style="color:#f88; margin-left: 8px; font-size: 8px;">
+                        • ${p.name}: ΔE=${p.distance.toFixed(1)} → <span style="color:#f44">-${p.penalty.toFixed(1)}</span>
+                    </div>`;
+                });
+            }
+            
+            // Mode Scores (compact)
+            html += `<div style="color:#0ff; margin: 6px 0 4px 0; font-size: 9px;">📊 Weighted Distances:</div>`;
+            breakdown.modeScores.forEach(m => {
+                const modeColor = m.mode === 'normal' ? '#0f0' : 
+                                 m.mode === 'deuteranopia' ? '#ff0' :
+                                 m.mode === 'protanopia' ? '#f80' : '#88f';
+                html += `<div style="margin-left: 8px; margin-bottom: 3px; font-size: 8px;">
+                    <span style="color:${modeColor}; font-weight:bold;">${m.mode.substr(0,4)}:</span>
+                    <span style="color:#888"> ${(m.weight * 100).toFixed(1)}%</span>
+                    <span style="color:#aaa;"> × ${m.minDistance.toFixed(1)}</span>
+                    ${m.penalty > 0 ? `<span style="color:#f88;"> -${m.penalty.toFixed(1)}</span>` : ''}
+                    <span style="color:#0ff;"> = ${m.finalScore.toFixed(2)}</span>
+                </div>`;
+            });
+            
+            // Total
+            html += `<div style="border-top: 1px solid #333; margin-top: 6px; padding-top: 4px; color:#0ff; font-size: 10px; font-weight: bold;">
+                TOTAL = ${breakdown.total.toFixed(2)}
+            </div>`;
+            
+            content.innerHTML = html;
+            
+            // Position tooltip near mouse
+            const x = event ? event.clientX : window.innerWidth / 2;
+            const y = event ? event.clientY : window.innerHeight / 2;
+            
+            panel.style.left = (x + 15) + 'px';
+            panel.style.top = (y + 15) + 'px';
+            panel.style.display = 'block';
+        }
+
+        function hideCalculationBreakdown() {
+            document.getElementById('calculationBreakdown').style.display = 'none';
+        }
+
+        // --- Candidate Recommender ---
+
+        function renderRecommendations() {
+            const teamSize = parseInt(document.getElementById('teamSize').value);
+            const grid = document.getElementById('recommendationsGrid');
+            grid.innerHTML = '<div style="color:#888;grid-column:1/-1;text-align:center;padding:20px">Calculating top candidates...</div>';
+
+            setTimeout(() => {
+                const rawCandidates = generateColorCandidates().map(c => c.rgb);
+                let scored = rawCandidates.map(rgb => {
+                    const score = calculateDetailedScore(rgb, colors);
+                    return { rgb, score };
+                });
+                
+                // Sort by score descending - best first
+                scored.sort((a, b) => b.score - a.score);
+
+                const groups = [];
+                for (let item of scored) {
+                    if (groups.length >= 20) break;
+                    const itemLab = rgbToLab(item.rgb);
+                    let isDuplicate = false;
+                    
+                    // Check against existing colors
+                    for (let c of colors) {
+                        if (deltaE(itemLab, rgbToLab(c.rgb)) < 5) { 
+                            isDuplicate = true; 
+                            break; 
+                        }
+                    }
+                    if (isDuplicate) continue;
+                    
+                    // Check against already selected groups (diversity)
+                    for (let g of groups) {
+                        if (deltaE(itemLab, rgbToLab(g.rgb)) < 25) { 
+                            isDuplicate = true; 
+                            break; 
+                        }
+                    }
+                    if (!isDuplicate) groups.push(item);
+                }
+
+                // Calculate future steps for each candidate
+                groups.forEach((g, idx) => {
+                    const tempBase = [...colors, { rgb: g.rgb, name: 'Candidate' }];
+                    g.futureSteps = optimizeTeam(tempBase, teamSize, true);
+                    g.rank = idx + 1; // Add rank for display
+                });
+
+                renderFractalGrid(groups);
+            }, 50);
+        }
+
+        function renderFractalGrid(items) {
+            const grid = document.getElementById('recommendationsGrid');
+            grid.innerHTML = '';
+            
+            items.forEach((item, idx) => {
+                const card = document.createElement('div');
+                card.className = 'recommendation-card';
+                
+                // Highlight the #1 best option
+                if (idx === 0) {
+                    card.style.border = '2px solid #0ff';
+                    card.style.background = '#1a2a2a';
+                }
+                
+                card.onmouseover = (e) => { 
+                    hoveredCandidate = item; 
+                    renderColorSpace(); 
+                    renderHeatmap();
+                    renderSpectrum();
+                    showCalculationBreakdown(item.rgb, e);
+                };
+                card.onmousemove = (e) => {
+                    if (hoveredCandidate === item) {
+                        const panel = document.getElementById('calculationBreakdown');
+                        panel.style.left = (e.clientX + 15) + 'px';
+                        panel.style.top = (e.clientY + 15) + 'px';
+                    }
+                };
+                card.onmouseout = () => { 
+                    hoveredCandidate = null; 
+                    renderColorSpace(); 
+                    renderHeatmap();
+                    renderSpectrum();
+                    hideCalculationBreakdown();
+                };
+
+                // Rank badge
+                const rank = document.createElement('div');
+                rank.style.position = 'absolute';
+                rank.style.top = '4px';
+                rank.style.left = '4px';
+                rank.style.background = idx === 0 ? '#0ff' : '#333';
+                rank.style.color = idx === 0 ? '#000' : '#888';
+                rank.style.padding = '2px 6px';
+                rank.style.fontSize = '8px';
+                rank.style.fontWeight = 'bold';
+                rank.style.borderRadius = '2px';
+                rank.textContent = `#${idx + 1}`;
+
+                const preview = document.createElement('div');
+                preview.className = 'rec-color-preview';
+                preview.style.background = `rgb(${item.rgb[0]}, ${item.rgb[1]}, ${item.rgb[2]})`;
+                preview.style.position = 'relative';
+                preview.appendChild(rank);
+                
+                if (item.futureSteps && item.futureSteps.length > 0) {
+                    const dots = document.createElement('div');
+                    dots.className = 'preview-dots';
+                    item.futureSteps.forEach(step => {
+                        const d = document.createElement('div');
+                        d.className = 'preview-dot';
+                        d.style.background = `rgb(${step.rgb[0]}, ${step.rgb[1]}, ${step.rgb[2]})`;
+                        dots.appendChild(d);
+                    });
+                    preview.appendChild(dots);
+                }
+                card.appendChild(preview);
+
+                const hex = document.createElement('div');
+                hex.style.fontSize = '9px';
+                hex.style.color = idx === 0 ? '#0ff' : '#888';
+                hex.style.fontWeight = idx === 0 ? 'bold' : 'normal';
+                hex.textContent = rgbToHex(item.rgb);
+                card.appendChild(hex);
+
+                const score = document.createElement('div');
+                score.className = 'rec-score';
+                score.innerHTML = `<span>Score:</span><span class="rec-score-value" style="color:${idx === 0 ? '#0ff' : '#888'}">${item.score.toFixed(1)}</span>`;
+                card.appendChild(score);
+
+                // TNIL name display
+                const tnilName = document.createElement('div');
+                tnilName.style.fontSize = '10px';
+                tnilName.style.color = idx === 0 ? '#0ff' : '#888';
+                tnilName.style.fontWeight = 'bold';
+                tnilName.style.marginTop = '3px';
+                tnilName.style.fontFamily = 'monospace';
+                tnilName.textContent = rgbToTNIL(item.rgb);
+                card.appendChild(tnilName);
+
+                const btnAdd = document.createElement('button');
+                btnAdd.className = idx === 0 ? 'btn primary' : 'btn';
+                btnAdd.innerHTML = idx === 0 ? '★ Add Best' : '+ Add';
+                btnAdd.style.width = '100%';
+                btnAdd.style.marginTop = '5px';
+                btnAdd.style.fontSize = '9px';
+                btnAdd.onclick = (e) => { 
+                    e.stopPropagation(); 
+                    const newColor = { 
+                        name: rgbToTNIL(item.rgb), 
+                        hex: rgbToHex(item.rgb), 
+                        rgb: item.rgb 
+                    };
+                    colors.push(newColor);
+                    updateAll(); 
+                };
+                card.appendChild(btnAdd);
+                grid.appendChild(card);
+            });
+        }
+
+        // --- Color Space & Gamut ---
+
+        function renderColorSpace() {
+            const container = document.getElementById('colorspaceContainer');
+            container.innerHTML = '';
+            const modes = ['normal', currentMode];
+            const titles = ['Normal Vision Color Space', `${currentMode.charAt(0).toUpperCase() + currentMode.slice(1)} Color Space`];
+
+            modes.forEach((mode, idx) => {
+                const panel = document.createElement('div');
+                panel.className = 'colorspace-panel';
+                panel.appendChild(document.createElement('div')).textContent = titles[idx];
+                const canvas = document.createElement('canvas');
+                canvas.className = 'colorspace-canvas';
+                canvas.width = 600;
+                canvas.height = 400;
+                panel.appendChild(canvas);
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0, 0, 600, 400);
+
+                let allColors = [...colors];
+                
+                // Add hovered candidate and its future steps
+                if (hoveredCandidate) {
+                    allColors.push({ ...hoveredCandidate, isNew: true, name: 'Candidate' });
+                    if (hoveredCandidate.futureSteps) {
+                        allColors.push(...hoveredCandidate.futureSteps.map(s => ({ ...s, isNew: true })));
+                    }
+                } else if (defaultPlan.length > 0) {
+                    // Show default plan when not hovering
+                    allColors.push(...defaultPlan);
+                }
+
+                drawVoronoiMap(ctx, mode, allColors);
+
+                // Axes
+                ctx.strokeStyle = '#444';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(300, 0); ctx.lineTo(300, 400);
+                ctx.moveTo(0, 200); ctx.lineTo(600, 200);
+                ctx.stroke();
+
+                // Plot Dots
+                colors.forEach(c => plotDot(ctx, c.rgb, c.name, mode, true));
+                if (hoveredCandidate) {
+                    plotDot(ctx, hoveredCandidate.rgb, "?", mode, false, true);
+                    if (hoveredCandidate.futureSteps) {
+                        hoveredCandidate.futureSteps.forEach((c, i) => plotDot(ctx, c.rgb, `${i+1}`, mode, false, false, true));
+                    }
+                } else if (defaultPlan.length > 0) {
+                    defaultPlan.forEach((c, i) => plotDot(ctx, c.rgb, `${i+1}`, mode, false, false, true));
+                }
+
+                panel.appendChild(document.createElement('div')).innerHTML =
+                    '<div class="info-text">Background: True Gamut (L=60) | Lines: Voronoi Boundaries</div>';
+                container.appendChild(panel);
+            });
+        }
+
+        function drawVoronoiMap(ctx, mode, activeColors) {
+            const w = 600;
+            const h = 400;
+            const imgData = ctx.createImageData(w, h);
+            const data = imgData.data;
+            const showGamut = document.getElementById('showGamut').checked;
+
+            const points = activeColors.map(c => {
+                const sim = simulateColorBlindness(c.rgb, mode);
+                const lab = rgbToLab(sim);
+                return {
+                    l: lab[0], a: lab[1], b: lab[2],
+                    rgb: sim,
+                    isNew: c.isNew || c.name.startsWith('+') || c.name === 'Candidate'
+                };
+            });
+
+            function getClosestIdx(a, b) {
+                let minDist = Infinity;
+                let idx = -1;
+                const sliceL = 60;
+                for (let i = 0; i < points.length; i++) {
+                    const d = (sliceL - points[i].l) ** 2 + (a - points[i].a) ** 2 + (b - points[i].b) ** 2;
+                    if (d < minDist) { minDist = d; idx = i; }
+                }
+                return idx;
+            }
+
+            // First pass: fill everything
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    const a = (x - 300) / 2;
+                    const b = (200 - y) / 2;
+                    const idx = (y * w + x) * 4;
+
+                    // Calculate the color at this Lab position
+                    const trueRgb = labToRgb([60, a, b]);
+                    
+                    // Check if in gamut
+                    if (!isRgbInGamut(trueRgb)) {
+                        data[idx + 3] = 0; // transparent
+                        continue;
+                    }
+
+                    // Determine which Voronoi region this pixel belongs to
+                    if (points.length > 0) {
+                        const closestIdx = getClosestIdx(a, b);
+                        const owner = points[closestIdx];
+
+                        if (owner.isNew) {
+                            // NEW colors: show gradient
+                            if (showGamut) {
+                                data[idx] = trueRgb[0];
+                                data[idx + 1] = trueRgb[1];
+                                data[idx + 2] = trueRgb[2];
+                                data[idx + 3] = 255;
+                            } else {
+                                data[idx] = 0;
+                                data[idx + 1] = 0;
+                                data[idx + 2] = 0;
+                                data[idx + 3] = 255;
+                            }
+                        } else {
+                            // EXISTING colors: black fill
+                            data[idx] = 0;
+                            data[idx + 1] = 0;
+                            data[idx + 2] = 0;
+                            data[idx + 3] = 255;
+                        }
+                    } else {
+                        // No points: just show gradient
+                        if (showGamut) {
+                            data[idx] = trueRgb[0];
+                            data[idx + 1] = trueRgb[1];
+                            data[idx + 2] = trueRgb[2];
+                            data[idx + 3] = 255;
+                        } else {
+                            data[idx] = 0;
+                            data[idx + 1] = 0;
+                            data[idx + 2] = 0;
+                            data[idx + 3] = 255;
+                        }
+                    }
+                }
+            }
+
+            // Second pass: draw Voronoi boundaries
+            if (points.length > 0) {
+                for (let y = 0; y < h - 1; y++) {
+                    for (let x = 0; x < w - 1; x++) {
+                        const a = (x - 300) / 2;
+                        const b = (200 - y) / 2;
+                        const idx = (y * w + x) * 4;
+
+                        // Skip if transparent
+                        if (data[idx + 3] === 0) continue;
+
+                        const closestIdx = getClosestIdx(a, b);
+                        const right = getClosestIdx(a + 0.5, b);
+                        const down = getClosestIdx(a, b - 0.5);
+
+                        // Draw boundary if neighbors differ
+                        if (closestIdx !== right || closestIdx !== down) {
+                            data[idx] = 0;
+                            data[idx + 1] = 0;
+                            data[idx + 2] = 0;
+                            data[idx + 3] = 255;
+                        }
+                    }
+                }
+            }
+
+            ctx.putImageData(imgData, 0, 0);
+            drawGamutWireframe(ctx, mode);
+        }
+
+        function drawGamutWireframe(ctx, mode) {
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            const corners = [[0, 0, 0], [255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0], [255, 0, 255], [0, 255, 255], [255, 255, 255]];
+            const edges = [[0, 1], [0, 2], [0, 3], [1, 4], [1, 5], [2, 4], [2, 6], [3, 5], [3, 6], [4, 7], [5, 7], [6, 7]];
+            ctx.beginPath();
+            edges.forEach(edge => {
+                const start = corners[edge[0]];
+                const end = corners[edge[1]];
+                for (let i = 0; i <= 10; i++) {
+                    const t = i / 10;
+                    const r = start[0] + (end[0] - start[0]) * t;
+                    const g = start[1] + (end[1] - start[1]) * t;
+                    const b = start[2] + (end[2] - start[2]) * t;
+                    const sim = simulateColorBlindness([r, g, b], mode);
+                    const lab = rgbToLab(sim);
+                    const x = 300 + lab[1] * 2;
+                    const y = 200 - lab[2] * 2;
+                    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                }
+            });
+            ctx.stroke();
+        }
+
+        function plotDot(ctx, rgb, label, mode, isBase, isStack = false, isPlan = false) {
+            const sim = simulateColorBlindness(rgb, mode);
+            const lab = rgbToLab(sim);
+            const x = 300 + lab[1] * 2;
+            const y = 200 - lab[2] * 2;
+            ctx.fillStyle = `rgb(${sim[0]}, ${sim[1]}, ${sim[2]})`;
+            ctx.beginPath();
+            ctx.arc(x, y, isStack || isPlan ? 5 : 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            if (isBase || isStack || isPlan) {
+                ctx.fillStyle = '#fff';
+                ctx.font = '9px monospace';
+                ctx.fillText(label.replace('+', ''), x + 8, y + 3);
+                
+                // Add L value box below the label
+                const lValue = `L${Math.round(lab[0])}`;
+                ctx.fillStyle = '#000';
+                ctx.fillRect(x + 8, y + 6, 22, 10);
+                ctx.strokeStyle = '#666';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(x + 8, y + 6, 22, 10);
+                ctx.fillStyle = '#888';
+                ctx.font = '8px monospace';
+                ctx.fillText(lValue, x + 9, y + 14);
+            }
+        }
+
+        function renderSpectrum() {
+            const container = document.getElementById('spectrumContainer');
+            container.innerHTML = '';
+            const modes = ['normal', 'deuteranopia', 'protanopia', 'tritanopia'];
+            const titles = ['Normal', 'Deuteranopia', 'Protanopia', 'Tritanopia'];
+            
+            let displayColors = [...colors];
+            if (hoveredCandidate) {
+                const tnilName = rgbToTNIL(hoveredCandidate.rgb);
+                displayColors.push({ 
+                    name: tnilName, 
+                    rgb: hoveredCandidate.rgb, 
+                    isHovered: true 
+                });
+            }
+            
+            // Add future plan colors if they exist
+            if (defaultPlan && defaultPlan.length > 0 && !hoveredCandidate) {
+                displayColors.push(...defaultPlan);
+            }
+            
+            modes.forEach((mode, idx) => {
+                const panel = document.createElement('div');
+                panel.className = 'spectrum-panel';
+                panel.innerHTML = `<div class="panel-title">${titles[idx]}</div>`;
+                const grid = document.createElement('div');
+                grid.className = 'spectrum-grid';
+                
+                // Calculate grid columns based on number of colors
+                const numColors = displayColors.length;
+                const cols = Math.ceil(Math.sqrt(numColors));
+                grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+                
+                displayColors.forEach(color => {
+                    const rgb = simulateColorBlindness(color.rgb, mode);
+                    const cell = document.createElement('div');
+                    cell.className = 'spectrum-cell';
+                    cell.style.background = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+                    cell.style.color = getTextColor(rgb);
+                    cell.textContent = (color.name || "?").substring(0, 3);
+                    if (color.isHovered) {
+                        cell.style.border = '2px solid #0ff';
+                        cell.style.transform = 'scale(1.1)';
+                        cell.style.zIndex = '10';
+                    } else if (color.isNew) {
+                        cell.style.opacity = '0.6';
+                        cell.style.border = '1px solid #666';
+                    }
+                    grid.appendChild(cell);
+                });
+                panel.appendChild(grid);
+                container.appendChild(panel);
+            });
+        }
+
+        function updateAll() {
+            const teamSize = parseInt(document.getElementById('teamSize').value);
+            const lockExisting = document.getElementById('lockExisting').checked;
+            defaultPlan = optimizeTeam(colors, teamSize, lockExisting);
+
+            renderHeatmap();
+            renderSpectrum();
+            renderColorSpace();
+            renderRecommendations();
+        }
+
+        document.querySelectorAll('.toggle').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.toggle').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentMode = btn.dataset.mode;
+                updateAll();
+            });
+        });
+
+        document.getElementById('teamSize').addEventListener('input', (e) => {
+            document.getElementById('teamSizeVal').textContent = e.target.value;
+            updateAll();
+        });
+
+        // Control listeners
+        document.getElementById('lockExisting').addEventListener('change', updateAll);
+        document.getElementById('showGamut').addEventListener('change', () => {
+            renderColorSpace();
+        });
+        document.getElementById('minDelta').addEventListener('change', updateAll);
+        document.getElementById('wNormal').addEventListener('change', updateAll);
+        document.getElementById('wDeut').addEventListener('change', updateAll);
+        document.getElementById('wProt').addEventListener('change', updateAll);
+        document.getElementById('wTrit').addEventListener('change', updateAll);
+        document.getElementById('avoidBlack').addEventListener('change', updateAll);
+        document.getElementById('avoidWhite').addEventListener('change', updateAll);
+        document.getElementById('avoidGrey').addEventListener('change', updateAll);
+        document.getElementById('uiMinDist').addEventListener('change', updateAll);
+        document.getElementById('generateBtn').addEventListener('click', updateAll);
+
+        updateAll();
+    </script>
+</body>
+
+</html>
