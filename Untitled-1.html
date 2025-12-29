@@ -671,7 +671,11 @@
                         </div>
                         <div class="control-group">
                             <input type="checkbox" id="avoidBlood" checked> <label>Blood</label>
+                            <input type="text" id="bloodRgb" value="139,0,0" style="width: 70px; font-size: 9px; margin-left: 5px;">
+                        </div>
+                        <div class="control-group">
                             <input type="checkbox" id="avoidBrown" checked> <label>Brown</label>
+                            <input type="text" id="brownRgb" value="101,67,33" style="width: 70px; font-size: 9px; margin-left: 5px;">
                         </div>
                         <div class="control-group">
                             <label>Min Dist:</label>
@@ -907,12 +911,16 @@
             
             const problematicMinDist = parseFloat(document.getElementById('problematicMinDist').value) || 25;
             if (document.getElementById('avoidBlood').checked) {
-                constraints.push({ rgb: [139, 0, 0], name: 'Dark Red', minDist: problematicMinDist });
-                constraints.push({ rgb: [128, 0, 0], name: 'Maroon', minDist: problematicMinDist });
+                const bloodRgb = document.getElementById('bloodRgb').value.split(',').map(v => parseInt(v.trim()));
+                if (bloodRgb.length === 3 && bloodRgb.every(v => !isNaN(v) && v >= 0 && v <= 255)) {
+                    constraints.push({ rgb: bloodRgb, name: 'Blood', minDist: problematicMinDist });
+                }
             }
             if (document.getElementById('avoidBrown').checked) {
-                constraints.push({ rgb: [101, 67, 33], name: 'Brown', minDist: problematicMinDist });
-                constraints.push({ rgb: [139, 69, 19], name: 'Saddle Brown', minDist: problematicMinDist });
+                const brownRgb = document.getElementById('brownRgb').value.split(',').map(v => parseInt(v.trim()));
+                if (brownRgb.length === 3 && brownRgb.every(v => !isNaN(v) && v >= 0 && v <= 255)) {
+                    constraints.push({ rgb: brownRgb, name: 'Brown', minDist: problematicMinDist });
+                }
             }
             
             return { colors: constraints, minDist: minDist };
@@ -1420,6 +1428,8 @@
                 colors.forEach((colColor, j) => {
                     const cell = document.createElement('div');
                     cell.className = 'heatmap-cell';
+                    cell.dataset.row = i;
+                    cell.dataset.col = j;
                     
                     if (i === j) {
                         const cbRgb = simulateColorBlindness(rowColor.rgb, currentMode);
@@ -1443,10 +1453,62 @@
                             cell.textContent = diff.toFixed(0);
                         }
                     }
+                    cell.onmouseover = () => highlightMirror(i, j, true, cell);
+                    cell.onmouseout = () => highlightMirror(i, j, false, cell);
                     grid.appendChild(cell);
                 });
             });
             container.appendChild(grid);
+        }
+
+        function highlightMirror(row, col, active, sourceCell) {
+            const cells = document.querySelectorAll('.heatmap-cell');
+            const n = colors.length;
+            
+            // The grid structure: 
+            // - First row: empty corner + n column labels (not heatmap cells)
+            // - Each subsequent row: row label + n heatmap cells
+            // So querySelectorAll('.heatmap-cell') returns only the actual cells
+            // Row i has cells at indices [i*n, i*n+1, ..., i*n+(n-1)]
+            const currentIdx = row * n + col;
+            const mirrorIdx = col * n + row;
+            
+            if (active) {
+                // Get the colorblind-simulated colors for proper border
+                const rowColor = colors[row];
+                const colColor = colors[col];
+                const rgb1 = simulateColorBlindness(rowColor.rgb, currentMode);
+                const rgb2 = simulateColorBlindness(colColor.rgb, currentMode);
+                
+                // Current cell
+                if (cells[currentIdx]) {
+                    cells[currentIdx].style.borderColor = rgbToHex(rgb1);
+                    cells[currentIdx].style.borderWidth = '3px';
+                    cells[currentIdx].style.borderStyle = 'solid';
+                    cells[currentIdx].style.zIndex = '10';
+                    cells[currentIdx].style.transform = 'scale(1.05)';
+                }
+                
+                // Mirror cell
+                if (cells[mirrorIdx] && mirrorIdx !== currentIdx) {
+                    cells[mirrorIdx].style.borderColor = rgbToHex(rgb2);
+                    cells[mirrorIdx].style.borderWidth = '3px';
+                    cells[mirrorIdx].style.borderStyle = 'solid';
+                    cells[mirrorIdx].style.zIndex = '10';
+                    cells[mirrorIdx].style.transform = 'scale(1.05)';
+                }
+            } else {
+                if (cells[currentIdx]) {
+                    cells[currentIdx].style.border = 'none';
+                    cells[currentIdx].style.zIndex = 'auto';
+                    cells[currentIdx].style.transform = 'scale(1)';
+                }
+                if (cells[mirrorIdx] && mirrorIdx !== currentIdx) {
+                    cells[mirrorIdx].style.border = 'none';
+                    cells[mirrorIdx].style.zIndex = 'auto';
+                    cells[mirrorIdx].style.transform = 'scale(1)';
+                }
+            }
         }
 
         function renderSpectrum() {
@@ -1904,6 +1966,14 @@
 
         ['avoidBlack', 'avoidWhite', 'avoidGrey', 'avoidBlood', 'avoidBrown'].forEach(id => {
             document.getElementById(id).addEventListener('change', () => {
+                if (!gameMode) {
+                    generateColors();
+                }
+            });
+        });
+
+        ['bloodRgb', 'brownRgb'].forEach(id => {
+            document.getElementById(id).addEventListener('input', () => {
                 if (!gameMode) {
                     generateColors();
                 }
