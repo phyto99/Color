@@ -647,47 +647,52 @@
             </div>
 
             <div class="recommender-panel">
-                <div class="constraint-section" style="margin-top: 0; padding-top: 0;">
-                    <div class="control-group">
-                        <label style="color:#fff">Avoid UI Colors:</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                    <!-- Avoid UI Colors Column -->
+                    <div>
+                        <div class="control-group">
+                            <label style="color:#fff">Avoid UI Colors:</label>
+                        </div>
+                        <div class="control-group">
+                            <input type="checkbox" id="avoidBlack" checked> <label>Black</label>
+                            <input type="checkbox" id="avoidWhite" checked> <label>White</label>
+                            <input type="checkbox" id="avoidGrey" checked> <label>Grey</label>
+                        </div>
+                        <div class="control-group">
+                            <label>Min Dist:</label>
+                            <input type="number" id="uiMinDist" value="40" min="10" max="100">
+                        </div>
                     </div>
-                    <div class="control-group">
-                        <input type="checkbox" id="avoidBlack" checked> <label>Black</label>
-                        <input type="checkbox" id="avoidWhite" checked> <label>White</label>
-                        <input type="checkbox" id="avoidGrey" checked> <label>Grey</label>
-                    </div>
-                    <div class="control-group">
-                        <label>Min Dist:</label>
-                        <input type="number" id="uiMinDist" value="40" min="10" max="100">
-                    </div>
-                </div>
 
-                <div class="constraint-section">
-                    <div class="control-group">
-                        <label style="color:#f88">Avoid Problematic Colors:</label>
+                    <!-- Avoid Problematic Colors Column -->
+                    <div>
+                        <div class="control-group">
+                            <label style="color:#f88">Avoid Problematic Colors:</label>
+                        </div>
+                        <div class="control-group">
+                            <input type="checkbox" id="avoidBlood" checked> <label>Blood</label>
+                            <input type="checkbox" id="avoidBrown" checked> <label>Brown</label>
+                        </div>
+                        <div class="control-group">
+                            <label>Min Dist:</label>
+                            <input type="number" id="problematicMinDist" value="25" min="10" max="100">
+                        </div>
                     </div>
-                    <div class="control-group">
-                        <input type="checkbox" id="avoidBlood" checked> <label>Blood</label>
-                        <input type="checkbox" id="avoidBrown" checked> <label>Brown</label>
-                    </div>
-                    <div class="control-group">
-                        <label>Min Dist:</label>
-                        <input type="number" id="problematicMinDist" value="25" min="10" max="100">
-                    </div>
-                </div>
 
-                <div class="constraint-section">
-                    <div class="control-group">
-                        <label>Min ΔE:</label>
-                        <input type="number" id="minDelta" value="30" min="10" max="100">
-                    </div>
-                    <div class="control-group">
-                        <label>TNIL Bonus:</label>
-                        <input type="number" id="tnilUniquenessBonus" value="100" min="0" max="500">
-                    </div>
-                    <div class="control-group">
-                        <input type="checkbox" id="showGamut" checked>
-                        <label>Show Gradient</label>
+                    <!-- Gradient & Settings Column -->
+                    <div>
+                        <div class="control-group">
+                            <label>Min ΔE:</label>
+                            <input type="number" id="minDelta" value="30" min="10" max="100">
+                        </div>
+                        <div class="control-group">
+                            <label>TNIL Bonus:</label>
+                            <input type="number" id="tnilUniquenessBonus" value="100" min="0" max="500">
+                        </div>
+                        <div class="control-group">
+                            <input type="checkbox" id="showGamut" checked>
+                            <label>Show Gradient</label>
+                        </div>
                     </div>
                 </div>
 
