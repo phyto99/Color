@@ -667,19 +667,22 @@
                     <!-- Avoid Problematic Colors Column -->
                     <div>
                         <div class="control-group">
-                            <label style="color:#f88">Avoid Problematic Colors:</label>
+                            <label style="color:#f88">Avoid Bodily Fluid Colors:</label>
                         </div>
                         <div class="control-group">
-                            <input type="checkbox" id="avoidBlood" checked> <label>Blood</label>
-                            <input type="text" id="bloodRgb" value="139,0,0" style="width: 70px; font-size: 9px; margin-left: 5px;">
+                            <input type="checkbox" id="avoidBodilyFluids" checked> <label>Enable Range</label>
+                        </div>
+                        <div class="control-group" style="flex-direction: column; align-items: stretch;">
+                            <label style="font-size: 8px; color: #888;">Range: Dark Red/Purple → Dark Yellow/Lime</label>
+                            <div style="display: flex; gap: 5px; align-items: center; margin-top: 4px;">
+                                <div style="width: 30px; height: 20px; border: 1px solid #333; background: rgb(100, 0, 50);"></div>
+                                <span style="font-size: 8px; color: #666;">→</span>
+                                <div style="width: 30px; height: 20px; border: 1px solid #333; background: rgb(120, 120, 0);"></div>
+                            </div>
                         </div>
                         <div class="control-group">
-                            <input type="checkbox" id="avoidBrown" checked> <label>Brown</label>
-                            <input type="text" id="brownRgb" value="101,67,33" style="width: 70px; font-size: 9px; margin-left: 5px;">
-                        </div>
-                        <div class="control-group">
-                            <label>Min Dist:</label>
-                            <input type="number" id="problematicMinDist" value="25" min="10" max="100">
+                            <label>Zone Width (ΔE):</label>
+                            <input type="number" id="problematicMinDist" value="30" min="10" max="100">
                         </div>
                     </div>
 
@@ -909,21 +912,76 @@
             if (document.getElementById('avoidWhite').checked) constraints.push({ rgb: [255, 255, 255], name: 'White' });
             if (document.getElementById('avoidGrey').checked) constraints.push({ rgb: [128, 128, 128], name: 'Grey' });
             
-            const problematicMinDist = parseFloat(document.getElementById('problematicMinDist').value) || 25;
-            if (document.getElementById('avoidBlood').checked) {
-                const bloodRgb = document.getElementById('bloodRgb').value.split(',').map(v => parseInt(v.trim()));
-                if (bloodRgb.length === 3 && bloodRgb.every(v => !isNaN(v) && v >= 0 && v <= 255)) {
-                    constraints.push({ rgb: bloodRgb, name: 'Blood', minDist: problematicMinDist });
-                }
-            }
-            if (document.getElementById('avoidBrown').checked) {
-                const brownRgb = document.getElementById('brownRgb').value.split(',').map(v => parseInt(v.trim()));
-                if (brownRgb.length === 3 && brownRgb.every(v => !isNaN(v) && v >= 0 && v <= 255)) {
-                    constraints.push({ rgb: brownRgb, name: 'Brown', minDist: problematicMinDist });
+            // Bodily fluid color range: from dark red/red-purple to dark yellow/yellow-lime
+            if (document.getElementById('avoidBodilyFluids').checked) {
+                const problematicMinDist = parseFloat(document.getElementById('problematicMinDist').value) || 30;
+                
+                // Define the range: dark red-purple to dark yellow-lime
+                // Start: dark red with purple tint (blood colors)
+                const startRgb = [100, 0, 50];  // Dark red-purple
+                // End: dark yellow-lime (bodily fluid colors)
+                const endRgb = [120, 120, 0];   // Dark yellow-lime
+                
+                // Create multiple sample points along the range for better coverage
+                const numSamples = 8;
+                for (let i = 0; i <= numSamples; i++) {
+                    const t = i / numSamples;
+                    // Interpolate in RGB space
+                    const rgb = [
+                        Math.round(startRgb[0] + (endRgb[0] - startRgb[0]) * t),
+                        Math.round(startRgb[1] + (endRgb[1] - startRgb[1]) * t),
+                        Math.round(startRgb[2] + (endRgb[2] - startRgb[2]) * t)
+                    ];
+                    constraints.push({ 
+                        rgb: rgb, 
+                        name: `BodilyFluid-${i}`, 
+                        minDist: problematicMinDist,
+                        isRange: true,
+                        rangeStart: startRgb,
+                        rangeEnd: endRgb,
+                        rangeWidth: problematicMinDist
+                    });
                 }
             }
             
             return { colors: constraints, minDist: minDist };
+        }
+        
+        // Helper function to check if a color is within the bodily fluid range
+        function isInBodilyFluidRange(rgb, rangeStart, rangeEnd, rangeWidth) {
+            const colorLab = rgbToLab(rgb);
+            const startLab = rgbToLab(rangeStart);
+            const endLab = rgbToLab(rangeEnd);
+            
+            // Project color onto the line segment between start and end in LAB space
+            const dL = colorLab[0] - startLab[0];
+            const da = colorLab[1] - startLab[1];
+            const db = colorLab[2] - startLab[2];
+            
+            const rangeDL = endLab[0] - startLab[0];
+            const rangeDa = endLab[1] - startLab[1];
+            const rangeDb = endLab[2] - startLab[2];
+            
+            const rangeLenSq = rangeDL * rangeDL + rangeDa * rangeDa + rangeDb * rangeDb;
+            
+            if (rangeLenSq < 0.1) {
+                // Start and end are the same, treat as point
+                const dist = deltaE(startLab, colorLab);
+                return dist < rangeWidth;
+            }
+            
+            const t = Math.max(0, Math.min(1, (dL * rangeDL + da * rangeDa + db * rangeDb) / rangeLenSq));
+            
+            // Projected point on the line segment
+            const projL = startLab[0] + t * rangeDL;
+            const projA = startLab[1] + t * rangeDa;
+            const projB = startLab[2] + t * rangeDb;
+            const projLab = [projL, projA, projB];
+            
+            // Perpendicular distance from color to the line segment
+            const perpDist = deltaE(colorLab, projLab);
+            
+            return perpDist < rangeWidth;
         }
 
         function adjustStudents(type, delta) {
@@ -1005,10 +1063,37 @@
                 let score = 0;
                 
                 for (let ui of uiConstraints.colors) {
-                    const dist = deltaE(sample.lab, rgbToLab(ui.rgb));
-                    const threshold = ui.minDist || uiConstraints.minDist;
-                    if (dist < threshold) {
-                        score -= (threshold - dist) * 200;
+                    if (ui.isRange && ui.rangeStart && ui.rangeEnd) {
+                        // Range-based constraint (bodily fluid colors)
+                        if (isInBodilyFluidRange(sample.rgb, ui.rangeStart, ui.rangeEnd, ui.rangeWidth)) {
+                            // Calculate how deep in the range (for penalty scaling)
+                            const colorLab = rgbToLab(sample.rgb);
+                            const startLab = rgbToLab(ui.rangeStart);
+                            const endLab = rgbToLab(ui.rangeEnd);
+                            
+                            const dL = colorLab[0] - startLab[0];
+                            const da = colorLab[1] - startLab[1];
+                            const db = colorLab[2] - startLab[2];
+                            const rangeDL = endLab[0] - startLab[0];
+                            const rangeDa = endLab[1] - startLab[1];
+                            const rangeDb = endLab[2] - startLab[2];
+                            const rangeLenSq = rangeDL * rangeDL + rangeDa * rangeDa + rangeDb * rangeDb;
+                            const t = Math.max(0, Math.min(1, (dL * rangeDL + da * rangeDa + db * rangeDb) / rangeLenSq));
+                            const projL = startLab[0] + t * rangeDL;
+                            const projA = startLab[1] + t * rangeDa;
+                            const projB = startLab[2] + t * rangeDb;
+                            const projLab = [projL, projA, projB];
+                            const perpDist = deltaE(colorLab, projLab);
+                            
+                            score -= (ui.rangeWidth - perpDist) * 200;
+                        }
+                    } else {
+                        // Point-based constraint
+                        const dist = deltaE(sample.lab, rgbToLab(ui.rgb));
+                        const threshold = ui.minDist || uiConstraints.minDist;
+                        if (dist < threshold) {
+                            score -= (threshold - dist) * 200;
+                        }
                     }
                 }
                 
@@ -1100,11 +1185,20 @@
                     
                     let violatesConstraints = false;
                     for (let ui of uiConstraints.colors) {
-                        const dist = deltaE(candidate.lab, rgbToLab(ui.rgb));
-                        const threshold = ui.minDist || uiConstraints.minDist;
-                        if (dist < threshold) {
-                            violatesConstraints = true;
-                            break;
+                        if (ui.isRange && ui.rangeStart && ui.rangeEnd) {
+                            // Range-based constraint (bodily fluid colors)
+                            if (isInBodilyFluidRange(candidate.rgb, ui.rangeStart, ui.rangeEnd, ui.rangeWidth)) {
+                                violatesConstraints = true;
+                                break;
+                            }
+                        } else {
+                            // Point-based constraint
+                            const dist = deltaE(candidate.lab, rgbToLab(ui.rgb));
+                            const threshold = ui.minDist || uiConstraints.minDist;
+                            if (dist < threshold) {
+                                violatesConstraints = true;
+                                break;
+                            }
                         }
                     }
                     if (violatesConstraints) continue;
@@ -1964,20 +2058,15 @@
             }
         });
 
-        ['avoidBlack', 'avoidWhite', 'avoidGrey', 'avoidBlood', 'avoidBrown'].forEach(id => {
-            document.getElementById(id).addEventListener('change', () => {
-                if (!gameMode) {
-                    generateColors();
-                }
-            });
-        });
-
-        ['bloodRgb', 'brownRgb'].forEach(id => {
-            document.getElementById(id).addEventListener('input', () => {
-                if (!gameMode) {
-                    generateColors();
-                }
-            });
+        ['avoidBlack', 'avoidWhite', 'avoidGrey', 'avoidBodilyFluids'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('change', () => {
+                    if (!gameMode) {
+                        generateColors();
+                    }
+                });
+            }
         });
 
         ['uiMinDist', 'problematicMinDist', 'minDelta', 'tnilUniquenessBonus'].forEach(id => {
